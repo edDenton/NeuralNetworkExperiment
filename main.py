@@ -1,5 +1,5 @@
 """
-
+Data used for this comes from https://www.kaggle.com/competitions/digit-recognizer/data
 
 @author: Edward Denton
 """
