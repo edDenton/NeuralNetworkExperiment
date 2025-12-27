@@ -1,6 +1,12 @@
 """
 Data used for this comes from https://www.kaggle.com/competitions/siim-isic-melanoma-classification/
 
+TODO:
+    -Instead of downloading the data from Kaggle, use their API to get the data and work with it here
+    -Find a way to save the Neural Network so I can just call it
+    -Figure out how to host a website using Github
+    -Set up website and bam
+
 @author: Edward Denton
 """
 
