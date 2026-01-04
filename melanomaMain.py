@@ -1,11 +1,7 @@
 """
 Data used for this comes from https://www.kaggle.com/competitions/siim-isic-melanoma-classification/
 
-TODO:
-    -Instead of downloading the data from Kaggle, use their API to get the data and work with it here
-    -Find a way to save the Neural Network so I can just call it
-    -Figure out how to host a website using Github
-    -Set up website and bam
+
 
 @author: Edward Denton
 """
@@ -13,11 +9,10 @@ TODO:
 from os import listdir
 import numpy as np
 import pandas as pd
-import random as rand
 import cv2
 import concurrent.futures
 
-from matplotlib import pyplot as plt
+
 from NeuralNetwork import NeuralNetwork
 from AccuracyPlotter import AccuracyPlotter
 
@@ -123,8 +118,9 @@ def getData():
 
 
 def main():
+    # TODO: Redo the Layers code so I can specify between Conv2D, Pool2D, and Dense layers and their dimensions
     LR = 0.0005
-    EPOCHS = 500
+    EPOCHS = 100
     LAYERS = [49152, 1024, 512, 2]
     BATCH_SIZE = 512
 

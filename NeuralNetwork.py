@@ -1,5 +1,9 @@
 """
-
+Plan to save the Neural Network:
+    1. Save to a JSON file
+    2. Using JavaScript in connection with Github hosted pages
+    3. Model needs to be less than 10mb
+    4. 1GB max repo
 
 @author: Edward Denton
 """
@@ -21,7 +25,7 @@ class NeuralNetwork:
 
         for i in range(len(layer_sizes) - 1):
             is_output_layer = (i == len(layer_sizes) - 2)
-            self.LAYERS.append(Layer(layer_sizes[i], layer_sizes[i + 1], is_output_layer))
+            self.LAYERS.append(DenseLayer(layer_sizes[i], layer_sizes[i + 1], is_output_layer))
 
     def oneHotEncoding(self, training_labels: np.array):
         oneHotArray = np.zeros((self.NUMOUTPUTS, len(training_labels)))
@@ -87,20 +91,51 @@ class NeuralNetwork:
         return outputs
 
 
-class LayerNodeInfo:
+class Conv2D:
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=1):
+        self.stride = stride
+        self.padding = padding
+        self.kernel_size = kernel_size
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
+        self.weights = np.random.randn(out_channels, in_channels, kernel_size, kernel_size) * np.sqrt(
+            2.0 / in_channels * kernel_size * kernel_size)
+        self.biases = np.zeros((out_channels, 1))
+
+    def forward_propagation(self, inputs):
+        pass
+
+    def back_propagation(self, outputs):
+        pass
+
+
+class Pool2D:
+    def __init__(self, stride, padding):
+        self.stride = stride
+        self.padding = padding
+
+    def forward_propagation(self, inputs):
+        pass
+
+    def back_propagation(self, outputs):
+        pass
+
+
+class DenseLayerNodeInfo:
     def __init__(self):
         self.nodeValues = np.array([])
         self.preActivationValues = np.array([])
         self.activationValues = np.array([])
 
 
-class Layer:
+class DenseLayer:
     def __init__(self, numNodesIn: int, numNodesOut: int, outputLayer: bool):
         self.numNodesIn = numNodesIn
         self.numNodesOut = numNodesOut
         self.outputLayer = outputLayer
 
-        self.layerNodeInfo = LayerNodeInfo()
+        self.layerNodeInfo = DenseLayerNodeInfo()
 
         self.weights = np.random.randn(numNodesOut, numNodesIn) * np.sqrt(2 / numNodesIn)
         self.biases = np.zeros((numNodesOut, 1))
@@ -121,7 +156,7 @@ class Layer:
 
     def calculateGradients(self, outputs: np.array, batch_size: int):
         self.costGradientWeights = (1 / batch_size) * np.dot(outputs, self.layerNodeInfo.nodeValues.T)
-        self.costGradientBiases = (1 / batch_size) * np.sum(outputs, axis=1, keepdims=True)
+        self.costGradientBiases = (1 / batch_size) * np.sum(outputs)
 
     def updateWeightsBiases(self, learn_rate: float):
         self.weights -= learn_rate * self.costGradientWeights
@@ -134,5 +169,5 @@ class Layer:
         return (inputs > 0).astype(float)
 
     def softmax(self, inputs: np.array):
-        exp_values = np.exp(inputs - np.max(inputs, axis=0, keepdims=True))  # Stable softmax
+        exp_values = np.exp(inputs - np.max(inputs, axis=0, keepdims=True))
         return exp_values / np.sum(exp_values, axis=0, keepdims=True)
