@@ -9,7 +9,7 @@ import random as rand
 
 from matplotlib import pyplot as plt
 
-from NeuralNetwork import NeuralNetwork
+from NeuralNetwork import NeuralNetwork, Conv2D, Flatten, DenseLayer
 from AccuracyPlotter import AccuracyPlotter
 
 
@@ -18,13 +18,17 @@ def getData():
     data = np.array(data)
     np.random.shuffle(data)
 
-    testing_data = np.transpose(data[0:2000])
-    testing_labels = testing_data[0]
-    testing_images = testing_data[1:] / 255.0
+    test_data = data[:2000]
+    train_data = data[2000:]
 
-    training_data = np.transpose(data[2000:])
-    training_labels = training_data[0]
-    training_images = training_data[1:] / 255.0
+    training_labels = train_data[:, 0]
+    testing_labels = test_data[:, 0]
+
+    training_images = train_data[:, 1:] / 255.0
+    testing_images = test_data[:, 1:] / 255.0
+
+    training_images = training_images.reshape(-1, 1, 28, 28)
+    testing_images = testing_images.reshape(-1, 1, 28, 28)
 
     return training_images, training_labels, testing_images, testing_labels
 
@@ -55,17 +59,18 @@ def seePerformance(NN: NeuralNetwork, images, labels):
 
 def main():
     LR = 0.01
-    EPOCHS = 50
-    LAYERS = [784, 128, 64, 10]
+    EPOCHS = 10
+    LAYERS = [Conv2D(1, 8, 3, 1, 1),
+              Flatten(),
+              DenseLayer(6272, 128, False),
+              DenseLayer(128, 10, True)]
     BATCH_SIZE = 128
 
     dataPlotter = AccuracyPlotter(learn_rate=LR, epochs=EPOCHS, layers=LAYERS, batch_size=BATCH_SIZE)
-    neural_network = NeuralNetwork(layer_sizes=LAYERS, learn_rate=LR, epochs=EPOCHS, accuracy_plotter=dataPlotter)
+    neural_network = NeuralNetwork(layers=LAYERS, learn_rate=LR, epochs=EPOCHS, accuracy_plotter=dataPlotter)
     training_images, training_labels, testing_images, testing_labels = getData()
-    neural_network.train(training_images, training_labels, BATCH_SIZE)
+    neural_network.train(training_images, training_labels, BATCH_SIZE, testing_images, testing_labels)
     print("Finished Training")
-    neural_network.test(testing_images, testing_labels)
-    print("Finished Testing")
     dataPlotter.showPlot()
     # seePerformance(neural_network, training_images, training_labels)
 

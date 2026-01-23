@@ -6,135 +6,112 @@ Data used for this comes from https://www.kaggle.com/competitions/siim-isic-mela
 @author: Edward Denton
 """
 
-from os import listdir
 import numpy as np
 import pandas as pd
 import cv2
-import concurrent.futures
 
-
-from NeuralNetwork import NeuralNetwork
+from NeuralNetwork import NeuralNetwork, Conv2D, Flatten, DenseLayer, MaxPool2D
 from AccuracyPlotter import AccuracyPlotter
 
 FILEPATH = "melanomaData/"
 
 
-def resize_and_save_image(image_path, save_path):
+def process_image(image_path):
     image = cv2.imread(image_path)
-    resizedImage = cv2.resize(src=image, dsize=(128, 128))
-    cv2.imwrite(save_path, resizedImage)
+    resizedImage = cv2.resize(image, (128, 128))
+    resizedImage = resizedImage / 255.0
+    resizedImage = np.transpose(resizedImage, (2, 0, 1))
+    return resizedImage
 
 
-def resize_images():
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
+def build_dataset():
+    dataset = pd.read_csv(FILEPATH + "train.csv")
 
-        for filename in listdir(FILEPATH + "test"):
-            image_path = FILEPATH + "test/" + filename
-            save_path = FILEPATH + "reTest/re" + filename
-            futures.append(executor.submit(resize_and_save_image, image_path, save_path))
+    benign_rows = dataset[dataset['benign_malignant'] == 'benign']
+    malignant_rows = dataset[dataset['benign_malignant'] == 'malignant']
 
-        for filename in listdir(FILEPATH + "train"):
-            image_path = FILEPATH + "train/" + filename
-            save_path = FILEPATH + "reTrain/re" + filename
-            futures.append(executor.submit(resize_and_save_image, image_path, save_path))
+    benign_rows = benign_rows.sample(n=1000)
 
-        for future in concurrent.futures.as_completed(futures):
-            pass
+    combined_dataset = pd.concat([malignant_rows, benign_rows])
+    combined_dataset = combined_dataset.sample(frac=1).reset_index(drop=True)
 
+    benign_images = []
+    malignant_images = []
+    benign_label = []
+    malignant_label = []
 
-def processData():
-    columnNames = []
-    redPixels = [f"pixel{i} (R)" for i in range(128 * 128)]
-    greenPixels = [f"pixel{i} (G)" for i in range(128 * 128)]
-    bluePixels = [f"pixel{i} (B)" for i in range(128 * 128)]
-    for i in range(128 * 128):
-        columnNames.append(redPixels[i])
-        columnNames.append(greenPixels[i])
-        columnNames.append(bluePixels[i])
-    columnNames.insert(0, "label")
+    for row in combined_dataset.itertuples():
+        filename = row[1]
+        label = row[7]
 
-    dfTrainCSV = pd.read_csv(FILEPATH + "train.csv")
-    dataRows = []
-    for i in range(len(dfTrainCSV)):
-        image = cv2.imread(FILEPATH + "reTrain/re" + dfTrainCSV.iloc[i, 0] + ".jpg")
-        image = image.flatten()
-        label = 0 if dfTrainCSV.iloc[i, 6] == "benign" else 1
-        newRow = [label] + image.tolist()
-        dataRows.append(newRow)
+        image_path = FILEPATH + "train/" + filename + ".jpg"
+        image_tensor = process_image(image_path)
 
-    dataDF = pd.DataFrame(dataRows, columns=columnNames)
-    print(dataDF)
-    dataDF.to_csv(FILEPATH + "completeMelanomaData.csv", index=False)
-    print("Done")
+        if label == "benign":
+            benign_images.append(image_tensor)
+            benign_label.append(0)
+        else:
+            malignant_images.append(image_tensor)
+            malignant_label.append(1)
+
+    benign_image_array = np.array(benign_images)
+    malignant_image_array = np.array(malignant_images)
+    benign_label = np.array(benign_label)
+    malignant_label = np.array(malignant_label)
+
+    return benign_image_array, malignant_image_array, benign_label, malignant_label
 
 
-def shrinkData():
-    data = pd.read_csv(FILEPATH + "completeMelanomaData.csv")
-    data.sort_values(by="label", ascending=False, inplace=True)
+def getData(b_images, m_images, b_labels, m_labels):
+    b_perm = np.random.permutation(len(b_images))
+    m_perm = np.random.permutation(len(m_images))
 
-    malignant_rows = data[data["label"] == 1].to_numpy()
-    benign_rows = data[data["label"] == 0].to_numpy()
+    b_images, b_labels = b_images[b_perm], b_labels[b_perm]
+    m_images, m_labels = m_images[m_perm], m_labels[m_perm]
 
-    print(malignant_rows.shape)
-    print(benign_rows.shape)
-    np.random.shuffle(malignant_rows)
-    np.random.shuffle(benign_rows)
-    benign_rows = benign_rows[:3000]
+    X_train = np.concatenate((b_images[:400], m_images[:400]), axis=0)
+    y_train = np.concatenate((b_labels[:400], m_labels[:400]), axis=0)
 
-    combined_rows = np.vstack((malignant_rows, benign_rows))
-    combined_df = pd.DataFrame(combined_rows, columns=data.columns)
-    combined_df.to_csv(FILEPATH + "melanomaData.csv", index=False)
+    X_test = np.concatenate((b_images[400:], m_images[400:]), axis=0)
+    y_test = np.concatenate((b_labels[400:], m_labels[400:]), axis=0)
 
+    train_perm = np.random.permutation(len(y_train))
+    test_perm = np.random.permutation(len(y_test))
 
-def getData():
-    malignant_train = 400
-    benign_train = 400
+    X_train, y_train = X_train[train_perm], y_train[train_perm]
+    X_test, y_test = X_test[test_perm], y_test[test_perm]
 
-    data = pd.read_csv(FILEPATH + "melanomaData.csv")
-    data.sort_values(by="label", ascending=False, inplace=True)
-
-    malignant_rows = data[data["label"] == 1].to_numpy()
-    benign_rows = data[data["label"] == 0].to_numpy()
-
-    np.random.shuffle(malignant_rows)
-    np.random.shuffle(benign_rows)
-
-    training_data = np.vstack((malignant_rows[:malignant_train], benign_rows[:benign_train]))
-    testing_data = np.vstack((malignant_rows[malignant_train:], benign_rows[benign_train:]))
-
-    np.random.shuffle(training_data)
-    np.random.shuffle(testing_data)
-
-    testing_data = np.transpose(testing_data)
-    testing_labels = testing_data[0]
-    testing_images = np.array(testing_data[1:] / 255.0, dtype=np.float64)
-
-    training_data = np.transpose(training_data)
-    training_labels = training_data[0]
-    training_images = np.array(training_data[1:] / 255.0, dtype=np.float64)
-
-    return training_images, training_labels, testing_images, testing_labels
+    return X_train, y_train, X_test, y_test
 
 
 def main():
-    # TODO: Redo the Layers code so I can specify between Conv2D, Pool2D, and Dense layers and their dimensions
-    LR = 0.0005
-    EPOCHS = 100
-    LAYERS = [49152, 1024, 512, 2]
-    BATCH_SIZE = 512
+    LR = 0.001
+    EPOCHS = 10
+    LAYERS = [Conv2D(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1),
+              MaxPool2D(pool_size=2, stride=2),
 
-    # shrinkData()
-    # resize_images()
-    # processData()
+              Conv2D(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1),
+              MaxPool2D(pool_size=2, stride=2),
+
+              Conv2D(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1),
+              MaxPool2D(pool_size=2, stride=2),
+
+              Flatten(),
+              DenseLayer(numNodesIn=16384, numNodesOut=128, outputLayer=False),
+              DenseLayer(numNodesIn=128, numNodesOut=2, outputLayer=True)]
+    BATCH_SIZE = 64
+
     dataPlotter = AccuracyPlotter(learn_rate=LR, epochs=EPOCHS, layers=LAYERS, batch_size=BATCH_SIZE)
-    neural_network = NeuralNetwork(layer_sizes=LAYERS, learn_rate=LR, epochs=EPOCHS, accuracy_plotter=dataPlotter)
-    training_images, training_labels, testing_images, testing_labels = getData()
+    neural_network = NeuralNetwork(layers=LAYERS, learn_rate=LR, epochs=EPOCHS, accuracy_plotter=dataPlotter)
+
+    benign_images, malignant_images, benign_labels, malignant_labels = build_dataset()
+    training_images, training_labels, testing_images, testing_labels = getData(benign_images, malignant_images,
+                                                                               benign_labels, malignant_labels)
+
     print("Data has been gathered")
-    neural_network.train(training_images, training_labels, BATCH_SIZE)
+    neural_network.train(training_images, training_labels, BATCH_SIZE, testing_images, testing_labels)
     print("Finished Training")
-    neural_network.test(testing_images, testing_labels)
-    print("Finished Testing")
+
     dataPlotter.showPlot()
     # seePerformance(neural_network, training_images, training_labels)
 
